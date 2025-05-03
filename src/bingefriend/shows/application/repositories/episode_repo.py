@@ -11,54 +11,6 @@ from bingefriend.shows.core.models.episode import Episode
 class EpisodeRepository:
     """Repository for managing episodes in the database."""
 
-    def create_episode(self, episode_data: dict[str, Any], db: Session) -> Optional[Episode]:
-        """Add a new episode to the database.
-
-        Args:
-            episode_data (dict): A dictionary containing episode data.
-            db (Session): The database session to use for database operations.
-
-        Returns:
-            Optional[Episode]: The created Episode object or None if an error occurred.
-
-        """
-        image_data = episode_data.get("image") or {}
-
-        airdate = episode_data.get('airdate')
-        airtime = episode_data.get('airtime')
-        airstamp = episode_data.get('airstamp')
-
-        db_airdate = airdate if airdate else None
-        db_airtime = airtime if airtime else None
-        db_airstamp = airstamp if airstamp else None
-
-        try:
-            episode = Episode(
-                maze_id=episode_data.get("id"),
-                url=episode_data.get("url"),
-                name=episode_data.get("name"),
-                number=episode_data.get("number"),
-                type=episode_data.get("type"),
-                airdate=db_airdate,
-                airtime=db_airtime,
-                airstamp=db_airstamp,
-                runtime=episode_data.get("runtime"),
-                image_medium=image_data.get("medium"),
-                image_original=image_data.get("original"),
-                summary=episode_data.get("summary"),
-                season_id=episode_data.get("season_id"),
-                show_id=episode_data.get("show_id")
-            )
-            db.add(episode)
-            db.commit()
-            return episode
-        except SQLAlchemyError as e:
-            logging.error(f"SQLAlchemyError creating episode entry for maze_id {episode_data.get('id')}: {e}")
-            return None
-        except Exception as e:
-            logging.error(f"Unexpected error creating episode entry for maze_id {episode_data.get('id')}: {e}")
-            return None
-
     def upsert_episode(self, episode_data: Dict[str, Any], db: Session) -> Optional[int]:
         """Creates a new episode or updates an existing one based on maze_id and show_id.
 
@@ -137,6 +89,7 @@ class EpisodeRepository:
                 new_episode = Episode(**episode_attrs)
 
                 db.add(new_episode)
+                db.flush()
 
                 episode_id = new_episode.id
 

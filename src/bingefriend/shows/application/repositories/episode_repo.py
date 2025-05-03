@@ -57,7 +57,6 @@ class EpisodeRepository:
                 "maze_id": maze_id,
                 "url": episode_data.get("url"),
                 "name": episode_data.get("name"),
-                "seasonNumber": episode_data.get("season"),  # API uses 'season', model uses 'seasonNumber'
                 "number": episode_data.get("number"),
                 "type": episode_data.get("type"),
                 "airdate": db_airdate,

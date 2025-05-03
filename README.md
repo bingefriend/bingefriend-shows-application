@@ -2,6 +2,12 @@
 
 This package manages TV show data within the BingeFriend application. It handles fetching data from an external API (TVMaze), processing it, and storing it in the database.
 
+## Installation
+
+```bash
+pip install bingefriend-shows-application
+```
+
 ## Core Components
 
 *   **`ShowService`**: Orchestrates the fetching and processing of show data, including details, seasons, and episodes. Manages show updates.

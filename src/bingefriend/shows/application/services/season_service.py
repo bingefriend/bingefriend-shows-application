@@ -58,7 +58,7 @@ class SeasonService:
         record["network_id"] = network_service.get_or_create_network(network_info, db) if network_info else None
 
         season_repo = SeasonRepository()
-        season_db_id = season_repo.upsert_season(record, db)
+        season_db_id = season_repo.upsert_season(record, show_id, db)
 
         if season_db_id:
             logging.info(

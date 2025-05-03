@@ -51,7 +51,6 @@ class NetworkRepository:
                 country_name=country_data.get('name'),
                 country_timezone=country_data.get('timezone'),
                 country_code=country_data.get('code'),
-                official_site=network_data.get('officialSite')
             ).prefix_with('IGNORE')  # Add the IGNORE prefix
 
             db.execute(insert_stmt)

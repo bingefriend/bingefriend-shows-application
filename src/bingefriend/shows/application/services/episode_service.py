@@ -82,7 +82,7 @@ class EpisodeService:
 
         episode_repo = EpisodeRepository()
 
-        episode_db_id = episode_repo.upsert_episode(record, db)
+        episode_db_id = episode_repo.upsert_episode(record, show_id, season_id, db)
 
         if episode_db_id:
             logging.info(

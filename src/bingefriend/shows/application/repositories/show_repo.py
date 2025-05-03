@@ -134,6 +134,7 @@ class ShowRepository:
                 new_show = Show(**show_attrs)
 
                 db.add(new_show)
+                db.flush()  # Ensure the INSERT IGNORE is sent to DB
 
                 show_id = new_show.id
 

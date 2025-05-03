@@ -78,6 +78,7 @@ class ShowGenreRepository:
             show_genre = ShowGenre(show_id=show_id, genre_id=genre_id)
 
             db.add(show_genre)
+            db.flush()  # Ensure the operation is committed
 
             logging.debug(f"Created ShowGenre link for show {show_id}, genre {genre_id}.")
 

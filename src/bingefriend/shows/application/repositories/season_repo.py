@@ -140,6 +140,7 @@ class SeasonRepository:
                 logging.debug(f"Creating new season with maze_id: {maze_id} for show_id: {show_id}")
                 new_season = Season(**season_attrs)
                 db.add(new_season)
+                db.flush()
                 season_id = new_season.id
                 logging.debug(f"Successfully created season maze_id: {maze_id}, internal DB ID: {season_id}")
 

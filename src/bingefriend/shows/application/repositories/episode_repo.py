@@ -50,6 +50,7 @@ class EpisodeRepository:
                 show_id=episode_data.get("show_id")
             )
             db.add(episode)
+            db.commit()
             return episode
         except SQLAlchemyError as e:
             logging.error(f"SQLAlchemyError creating episode entry for maze_id {episode_data.get('id')}: {e}")

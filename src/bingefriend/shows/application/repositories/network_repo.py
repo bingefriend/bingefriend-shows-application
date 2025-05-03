@@ -61,8 +61,7 @@ class NetworkRepository:
             ).prefix_with('IGNORE')  # Add the IGNORE prefix for MySQL
 
             db.execute(insert_stmt)
-            # We don't commit here, just execute within the ongoing transaction.
-            # We also don't need db.flush() as we aren't relying on the ORM object's state.
+            db.flush()  # Ensure the INSERT IGNORE is sent to DB
             logging.debug(f"Executed INSERT IGNORE for network maze_id: {network_maze_id}")
             return True  # Indicate the operation was attempted
 

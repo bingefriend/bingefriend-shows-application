@@ -64,6 +64,7 @@ class WebChannelRepository:
             ).prefix_with('IGNORE')  # Add the IGNORE prefix for MySQL
 
             db.execute(insert_stmt)
+            db.flush()  # Ensure the INSERT IGNORE is sent to DB
             logging.debug(f"Executed INSERT IGNORE for web channel maze_id: {web_channel_maze_id}")
             return True  # Indicate the operation was attempted
 

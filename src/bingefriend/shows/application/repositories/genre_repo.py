@@ -57,6 +57,7 @@ class GenreRepository:
             ).prefix_with('IGNORE')  # Add the IGNORE prefix for MySQL
 
             db.execute(insert_stmt)
+            db.flush()  # Ensure the operation is committed
             logging.debug(f"Executed INSERT IGNORE for genre name: '{name}'")
             return True  # Indicate the operation was attempted
 

@@ -1,76 +1,81 @@
 """Repository for web channel data."""
 
 import logging
-from bingefriend.shows.core.models.web_channel import WebChannel
+from sqlalchemy import select, Select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.mysql import insert as mysql_insert
-from sqlalchemy.exc import SQLAlchemyError
+from bingefriend.shows.core.models.web_channel import WebChannel
 
 
 # noinspection PyMethodMayBeStatic
 class WebChannelRepository:
     """Repository to interact with web channel."""
 
-    def get_web_channel_pk_by_maze_id(self, maze_id: int, db: Session) -> int | None:
-        """Get a web channel's primary key by its TV Maze ID.
+    def get_web_channel_by_maze_id(self, maze_id: int, db: Session) -> WebChannel | None:
+        """Get a web channel by its TV Maze ID.
 
         Args:
             maze_id (int): The ID of the web channel in TV Maze.
-            db (Session): The database session.
+            db (Session): The database session to use.
 
         Returns:
-            int | None: The primary key of the web channel if it exists, else None.
-        """
-        if not maze_id:
-            logging.warning("Attempted to get web channel PK with missing maze_id.")
-            return None
-        try:
-            # Query for the primary key directly for efficiency
-            web_channel_pk = db.query(WebChannel.id).filter(WebChannel.maze_id == maze_id).scalar()
-            return web_channel_pk
-        except SQLAlchemyError as e:
-            logging.error(f"Error fetching web channel PK by maze_id {maze_id}: {e}")
-            return None
-        except Exception as e:  # Catch broader exceptions if necessary
-            logging.error(f"Unexpected error fetching web channel PK by maze_id {maze_id}: {e}")
-            return None
+            WebChannel | None: The web channel object if found, else None.
 
-    def create_web_channel_if_not_exists(self, web_channel_data: dict, db: Session) -> bool:
-        """Attempt to create a new web channel using INSERT IGNORE.
+        """
+        web_channel: WebChannel | None = None
+
+        try:
+            query: Select = select(WebChannel).where(WebChannel.maze_id == maze_id)
+            web_channel = db.execute(query).scalars().first()
+        except Exception as e:
+            logging.error(f"Error fetching web channel by maze_id {maze_id}: {e}")
+            web_channel = None
+        finally:
+            return web_channel
+
+    def create_web_channel(self, web_channel_data, db: Session) -> WebChannel | None:
+        """Create a new web channel entry in the database.
 
         Args:
-            web_channel_data (dict): Data of the web channel to be created, must include 'id' (maze_id).
-            db (Session): The database session.
+            web_channel_data (dict): Data of the web channel to be created.
+            db (Session): The database session to use.
 
         Returns:
-            bool: True if the operation succeeded (insert attempted), False otherwise.
-                  Note: This doesn't guarantee a new row was inserted.
-        """
-        web_channel_maze_id = web_channel_data.get('id')
-        if not web_channel_maze_id:
-            logging.warning("Attempted to create web channel with missing 'id' (maze_id) in data.")
-            return False
+            WebChannel | None: The created web channel object if successful, else None.
 
-        logging.debug(f"Attempting INSERT IGNORE for web channel maze_id: {web_channel_maze_id}")
+        """
+        web_channel: WebChannel | None = None
+
         try:
-            country_data = web_channel_data.get('country') or {}
-            insert_stmt = mysql_insert(WebChannel).values(
-                maze_id=web_channel_maze_id,
+            country_data: dict = web_channel_data.get('country') or {}
+
+            web_channel = WebChannel(
+                maze_id=web_channel_data.get('id'),
                 name=web_channel_data.get('name'),
                 country_name=country_data.get('name'),
                 country_timezone=country_data.get('timezone'),
                 country_code=country_data.get('code'),
-                official_site=web_channel_data.get('officialSite')
-            ).prefix_with('IGNORE')  # Add the IGNORE prefix for MySQL
-
-            db.execute(insert_stmt)
-            db.flush()  # Ensure the INSERT IGNORE is sent to DB
-            logging.debug(f"Executed INSERT IGNORE for web channel maze_id: {web_channel_maze_id}")
-            return True  # Indicate the operation was attempted
-
+                official_site=web_channel_data.get('officialSite'),
+            )
+            db.add(web_channel)
+            db.flush()
+            logging.info(f"Web channel created with ID {web_channel.id}")
+        except IntegrityError as e:
+            try:
+                logging.warning(
+                    f"Re-fetching web channel maze_id {web_channel_data.get('id')} due to IntegrityError: {e}"
+                )
+                web_channel = self.get_web_channel_by_maze_id(web_channel_data.get('id'), db)
+            except Exception as e:
+                logging.error(
+                    f"Error fetching web channel maze_id {web_channel_data.get('id')} after IntegrityError: {e}"
+                )
+                web_channel = None
         except SQLAlchemyError as e:
-            logging.error(f"SQLAlchemyError during INSERT IGNORE for web channel maze_id {web_channel_maze_id}: {e}")
-            return False
+            logging.error(f"Error creating web channel maze_id {web_channel_data.get('id')}: {e}")
+            web_channel = None
         except Exception as e:
-            logging.error(f"Unexpected error during INSERT IGNORE for web channel maze_id {web_channel_maze_id}: {e}")
-            return False
+            print(f"Error creating web channel maze_id {web_channel_data.get('id')}: {e}")
+            web_channel = None
+        finally:
+            return web_channel

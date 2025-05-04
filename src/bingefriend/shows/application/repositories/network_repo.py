@@ -1,67 +1,77 @@
 """Repository for network data."""
 
 import logging
-from bingefriend.shows.core.models.network import Network
+from sqlalchemy import select, Select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.mysql import insert as mysql_insert
-from sqlalchemy.exc import SQLAlchemyError
+from bingefriend.shows.core.models.network import Network
 
 
 # noinspection PyMethodMayBeStatic
 class NetworkRepository:
-    """Repository to interact with network data."""
+    """Repository for network data."""
 
-    def get_network_pk_by_maze_id(self, maze_id: int, db: Session) -> int | None:
-        """Get a network's primary key by its TV Maze ID."""
-        if not maze_id:
-            logging.warning("Attempted to get network PK with missing maze_id.")
-            return None
-        try:
-            network_pk = db.query(Network.id).filter(Network.maze_id == maze_id).scalar()
-            return network_pk
-        except SQLAlchemyError as e:
-            logging.error(f"Error fetching network PK by maze_id {maze_id}: {e}")
-            return None
-        except Exception as e:
-            logging.error(f"Unexpected error fetching network PK by maze_id {maze_id}: {e}")
-            return None
-
-    def create_network_if_not_exists(self, network_data: dict, db: Session) -> bool:
-        """Attempt to create a new network using INSERT IGNORE.
+    def get_network_by_maze_id(self, maze_id: int, db: Session) -> Network | None:
+        """Get a network by its ID.
 
         Args:
-            network_data (dict): Data of the network to be created, must include 'id' (maze_id).
-            db (Session): The database session.
+            maze_id (int): The ID of the network to be fetched.
+            db (Session): The database session to use.
 
         Returns:
-            bool: True if the INSERT IGNORE was executed, False otherwise.
-        """
-        network_maze_id = network_data.get('id')
-        if not network_maze_id:
-            logging.warning("Attempted to create network with missing 'id' (maze_id) in data.")
-            return False
+            Network | None: The network object if found, else None.
 
-        logging.debug(f"Attempting INSERT IGNORE for network maze_id: {network_maze_id}")
+        """
+        network: Network | None = None
+
+        query: Select = select(Network).where(Network.maze_id == maze_id)
+
         try:
-            country_data = network_data.get('country') or {}
-            # Use INSERT IGNORE
-            insert_stmt = mysql_insert(Network).values(
-                maze_id=network_maze_id,
+            network = db.execute(query).scalars().first()
+        except Exception as e:
+            logging.error(f"Error fetching network by maze_id {maze_id}: {e}")
+            network = None
+        finally:
+            return network
+
+    def create_network(self, network_data: dict, db: Session) -> Network | None:
+        """Create a new network entry in the database.
+
+        Args:
+            network_data (dict): Data of the network to be created.
+            db (Session): The database session to use.
+
+        Returns:
+            Network | None: The created network object if successful, else None.
+
+        """
+        network: Network | None = None
+
+        try:
+            country_data: dict = network_data.get('country') or {}
+
+            network = Network(
+                maze_id=network_data.get('id'),
                 name=network_data.get('name'),
                 country_name=country_data.get('name'),
                 country_timezone=country_data.get('timezone'),
-                country_code=country_data.get('code'),
-            ).prefix_with('IGNORE')  # Add the IGNORE prefix
-
-            db.execute(insert_stmt)
-            db.flush()  # Ensure the statement is sent
-            logging.debug(f"Executed INSERT IGNORE and flushed for network maze_id: {network_maze_id}")
-            return True  # Indicate the operation was attempted
-
+                country_code=country_data.get('code')
+            )
+            db.add(network)
+            db.flush()
+            logging.info(f"Network created with ID {network.id}")
+        except IntegrityError as e:
+            try:
+                logging.warning(f"Re-fetching network maze_id {network_data.get('id')} due to IntegrityError: {e}")
+                network = self.get_network_by_maze_id(network_data.get('id'), db)
+            except SQLAlchemyError as e:
+                logging.error(f"Error fetching network maze_id {network_data.get('id')} after IntegrityError: {e}")
+                network = None
         except SQLAlchemyError as e:
-            # Log the specific error, including deadlock info if present
-            logging.error(f"SQLAlchemyError during INSERT IGNORE for network maze_id {network_maze_id}: {e}")
-            return False
+            logging.error(f"Error creating network maze_id {network_data.get('id')}: {e}")
+            network = None
         except Exception as e:
-            logging.error(f"Unexpected error during INSERT IGNORE for network maze_id {network_maze_id}: {e}")
-            return False
+            logging.error(f"Unexpected error for network maze_id {network_data.get('id')}: {e}")
+            network = None
+        finally:
+            return network

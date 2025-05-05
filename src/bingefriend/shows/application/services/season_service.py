@@ -2,11 +2,11 @@
 
 from typing import Any
 from sqlalchemy.orm import Session
-from bingefriend.shows.application import WebChannelService
+from bingefriend.shows.application.services.web_channel_service import WebChannelService
 from bingefriend.shows.application.repositories.season_repo import SeasonRepository
 from bingefriend.shows.application.services.network_service import NetworkService
 from bingefriend.shows.core.models import Network, WebChannel, Season
-from bingefriend.tvmaze_client.tvmaze_api import TVMazeAPI
+from bingefriend.shows.client_tvmaze.tvmaze_api import TVMazeAPI
 
 
 # noinspection PyMethodMayBeStatic
@@ -30,40 +30,44 @@ class SeasonService:
 
         return seasons
 
-    def process_season_record(self, record: dict, show_id: int, db: Session) -> Season | None:
+    def process_season_record(self, season_data: dict, show_id: int, db: Session) -> Season | None:
         """Process a single season record and return the processed data.
 
         Args:
-            record (dict): The season record to process.
+            season_data (dict): The season record to process.
             show_id (int): The ID of the show to associate with the season.
             db (Session): The database session to use.
 
         """
 
-        record["show_id"]: int = show_id
+        season_data["show_id"]: int = show_id
+
+        # Clean up the record by removing empty strings
+        for key in ['premiere_date', 'end_date']:
+            if season_data.get(key) == "":
+                season_data[key] = None
 
         # Get network data from the record
-        if record.get("network"):
+        if season_data.get("network"):
             network_service: NetworkService = NetworkService()
-            network_data: dict = record["network"]
+            network_data: dict = season_data["network"]
             network: Network | None = network_service.get_or_create_network(network_data, db)
-            record["network_id"]: int = network.id if network else None
+            season_data["network_id"]: int = network.id if network else None
 
         # Get web channel data from the record
-        if record.get("web_channel"):
+        if season_data.get("web_channel"):
             web_channel_service: WebChannelService = WebChannelService()
-            web_channel_data: dict = record["web_channel"]
+            web_channel_data: dict = season_data["web_channel"]
             web_channel: WebChannel | None = web_channel_service.get_or_create_web_channel(web_channel_data, db)
-            record["web_channel_id"]: int = web_channel.id if web_channel else None
+            season_data["web_channel_id"]: int = web_channel.id if web_channel else None
 
         # Process the season record
         season_repo: SeasonRepository = SeasonRepository()
-        season_data: dict = record
         season: dict | None = season_repo.create_season(season_data, db)
 
         return season
 
-    def get_season_by_show_id_and_number(self, show_id: int, season_number: int, db: Session) -> Season | None:
+    def get_season_by_show_id_and_season_number(self, show_id: int, season_number: int, db: Session) -> Season | None:
         """Get the season ID for a given show ID and season number.
 
         Args:
@@ -77,6 +81,6 @@ class SeasonService:
         """
         season_repo = SeasonRepository()
 
-        season: Season | None = season_repo.get_season_by_show_id_and_number(show_id, season_number, db)
+        season: Season | None = season_repo.get_season_by_show_id_and_season_number(show_id, season_number, db)
 
         return season

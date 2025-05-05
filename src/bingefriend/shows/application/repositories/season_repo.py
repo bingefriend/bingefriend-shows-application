@@ -29,7 +29,6 @@ class SeasonRepository:
         try:
             season = Season(
                 maze_id=season_data.get("id"),
-                url=season_data.get("url"),
                 number=season_data.get("number"),
                 name=season_data.get("name"),
                 episodeOrder=season_data.get("episodeOrder"),
@@ -56,7 +55,7 @@ class SeasonRepository:
         finally:
             return season
 
-    def get_season_by_show_id_and_number(self, show_id: int, season_number: int, db: Session) -> Season | None:
+    def get_season_by_show_id_and_season_number(self, show_id: int, season_number: int, db: Session) -> Season | None:
         """Get the season ID for a given show ID and season number.
 
         Args:

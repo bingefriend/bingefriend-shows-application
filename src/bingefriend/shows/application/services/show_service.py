@@ -11,7 +11,7 @@ from bingefriend.shows.application.services.show_genre_service import ShowGenreS
 from bingefriend.shows.application.repositories.show_repo import ShowRepository
 from bingefriend.shows.application.services.web_channel_service import WebChannelService
 from bingefriend.shows.core.models import WebChannel, Network, Show, Genre, ShowGenre
-from bingefriend.tvmaze_client.tvmaze_api import TVMazeAPI
+from bingefriend.shows.client_tvmaze.tvmaze_api import TVMazeAPI
 
 
 # noinspection PyMethodMayBeStatic
@@ -28,26 +28,30 @@ class ShowService:
             dict[str, Any] | None: A dictionary containing the shows and the next page number, or None if no more pages.
 
         """
+        shows_summary: list[dict[str, Any]] | None = None
 
         try:
             tvmaze_api: TVMazeAPI = TVMazeAPI()
-            shows_summary: list[dict[str, Any]] = tvmaze_api.get_shows(page=page_number)
+            shows_summary = tvmaze_api.get_shows(page=page_number)
 
             if shows_summary is None:
                 logging.info(f"API returned None (404 likely) for page {page_number}. Stopping pagination.")
-                return None
 
             if not shows_summary:
                 logging.info(f"No shows found on page {page_number}. Ending pagination.")
-                return None
-        except Exception as init_err:
-            logging.exception(f"Failed to get dependencies for ingestion service: {init_err}")
-            raise init_err  # Cannot proceed
+                shows_summary = None
 
-        return {
-            'records': shows_summary,
-            'next_page': page_number + 1 if shows_summary else None
-        }
+            if shows_summary:
+                logging.info(f"Retrieved {len(shows_summary)} shows from page {page_number}.")
+
+        except Exception as e:
+            logging.exception(f"Error retrieving show index page {page_number}: {e}")
+            shows_summary = None
+        finally:
+            return {
+                'records': shows_summary,
+                'next_page': page_number + 1 if shows_summary else None
+            }
 
     def process_show_record(self, record: dict[str, Any], db: Session) -> None:
         """Process a single show record.
@@ -75,6 +79,11 @@ class ShowService:
             record['web_channel_id']: int | None = web_channel.id if web_channel else None
 
         # Process the show record
+        # Clean up the record by removing empty strings
+        for key in ['premiered', 'ended']:
+            if record.get(key) == "":
+                record[key] = None
+
         show_repo: ShowRepository = ShowRepository()
         show: Show | None = show_repo.create_show(record, db)
         show_id: int | None = show.id if show else None
@@ -97,15 +106,15 @@ class ShowService:
         seasons = season_service.fetch_season_index_page(record.get('id'))
 
         if seasons:
-            for record in seasons:
+            for season_data in seasons:
                 # noinspection PyUnusedLocal
-                season = season_service.process_season_record(record, show_id, db)
+                season = season_service.process_season_record(season_data, show_id, db)
 
         # Process show episodes
         episode_service = EpisodeService()
         episodes = episode_service.fetch_episode_index_page(record.get('id'))
 
         if episodes:
-            for episode in episodes:
+            for episode_data in episodes:
                 # noinspection PyUnusedLocal
-                episode = episode_service.process_episode_record(episode, show_id, db)
+                episode = episode_service.process_episode_record(episode_data, show_id, db)

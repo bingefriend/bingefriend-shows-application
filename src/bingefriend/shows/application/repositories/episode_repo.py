@@ -28,7 +28,6 @@ class EpisodeRepository:
         try:
             episode = Episode(
                 maze_id=episode_data.get("id"),
-                url=episode_data.get("url"),
                 name=episode_data.get("name"),
                 number=episode_data.get("number"),
                 type=episode_data.get("type"),

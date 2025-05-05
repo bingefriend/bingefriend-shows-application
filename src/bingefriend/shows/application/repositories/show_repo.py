@@ -53,7 +53,6 @@ class ShowRepository:
 
             show = Show(
                 maze_id=show_data.get('id'),
-                url=show_data.get('url'),
                 name=show_data.get('name'),
                 type=show_data.get('type'),
                 language=show_data.get('language'),

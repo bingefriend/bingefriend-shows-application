@@ -10,7 +10,7 @@ from bingefriend.shows.application.services.season_service import SeasonService
 from bingefriend.shows.application.services.show_genre_service import ShowGenreService
 from bingefriend.shows.application.repositories.show_repo import ShowRepository
 from bingefriend.shows.application.services.web_channel_service import WebChannelService
-from bingefriend.shows.core.models import WebChannel, Network, Show, Genre, ShowGenre
+from bingefriend.shows.core.models import WebChannel, Network, Show, Genre
 from bingefriend.shows.client_tvmaze.tvmaze_api import TVMazeAPI
 
 
@@ -85,21 +85,32 @@ class ShowService:
                 record[key] = None
 
         show_repo: ShowRepository = ShowRepository()
-        show: Show | None = show_repo.create_show(record, db)
+        show: Show | None = show_repo.upsert_show(record, db)
         show_id: int | None = show.id if show else None
 
         # Process show genres
-        genres: list[str] = record.get('genres', [])
+        if show_id:
+            api_genre_names: list[str] = record.get('genres', [])
+            api_genre_ids_for_show: list[int] = []
 
-        if genres:
-            genre_service = GenreService()
-            for genre_name in genres:
-                genre: Genre | None = genre_service.get_or_create_genre(genre_name, db)
-                genre_id: int | None = genre.id if genre else None
+            if api_genre_names:
+                genre_service = GenreService()
+                for genre_name in api_genre_names:
+                    genre_obj: Genre | None = genre_service.get_or_create_genre(genre_name, db)
+                    if genre_obj and genre_obj.id is not None:
+                        # noinspection PyTypeChecker
+                        api_genre_ids_for_show.append(genre_obj.id)
+                    else:
+                        logging.warning(
+                            f"Could not get or create genre_id for genre_name: '{genre_name}' while processing s"
+                            f"how_id: {show_id}"
+                        )
 
-                show_genre_service: ShowGenreService = ShowGenreService()
-                # noinspection PyUnusedLocal
-                show_genre: ShowGenre | None = show_genre_service.create_show_genre(show_id, genre_id, db)
+            show_genre_service: ShowGenreService = ShowGenreService()
+            show_genre_service.sync_show_genres(show_id, api_genre_ids_for_show, db)
+
+        elif not show_id:
+            logging.warning("Skipping genre processing because show_id is not available.")
 
         # Process show seasons
         season_service = SeasonService()

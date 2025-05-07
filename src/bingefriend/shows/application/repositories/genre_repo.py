@@ -1,8 +1,11 @@
 """Repository for genre data."""
 
 import logging
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy import select
+
 from bingefriend.shows.core.models.genre import Genre
 
 
@@ -11,58 +14,60 @@ class GenreRepository:
     """Repository for genre data."""
 
     def get_genre_by_name(self, name: str, db: Session) -> Genre | None:
-        """Get a genre by its name."
+        """Get a genre by its name.
 
         Args:
             name (str): The name of the genre.
             db (Session): The database session to use.
 
         Returns:
-            int | None: The ID of the genre if found, otherwise None.
-
+            Genre | None: The genre object if found, otherwise None.
         """
-        genre: Genre | None = None
-
         try:
-            query = db.query(Genre).filter(Genre.name == name)
-            genre = db.execute(query).scalars().first()
-        except Exception as e:
-            logging.error(f"Error fetching genre by name {name}: {e}")
-            genre = None
-        finally:
-            return genre
+            stmt = select(Genre).where(Genre.name == name)
+            return db.execute(stmt).scalars().first()
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching genre by name '{name}': {e}")
+            return None
 
-    def create_genre(self, name: str, db: Session) -> Genre | None:
-        """Create a new genre entry in the database.
+    def upsert_genre(self, name: str, db: Session) -> Genre | None:
+        """
+        Get an existing genre by name, or create it if it doesn't exist.
+        If the Genre model had other fields, this would update them.
 
         Args:
-            name (str): The name of the genre to be created.
+            name (str): The name of the genre.
             db (Session): The database session to use.
 
         Returns:
-            Genre | None: The created genre object if successful, else None.
-
+            Genre | None: The genre object if found/created, else None.
         """
-
-        genre: Genre | None = None
+        if not name or not isinstance(name, str) or name.strip() == "":
+            logging.warning("Cannot upsert genre: name is invalid.")
+            return None
 
         try:
-            genre = Genre(name=name)
-            db.add(genre)
+            insert_values = {
+                'name': name.strip()
+            }
+
+            stmt = mysql_insert(Genre).values(insert_values)
+
+            stmt = stmt.on_duplicate_key_update(
+                name=stmt.inserted.name
+            )
+
+            db.execute(stmt)
             db.flush()
-            logging.info(f"Genre created with ID {genre.id}")
-        except IntegrityError as e:
-            try:
-                logging.warning(f"Re-fetching genre {name} due to IntegrityError: {e}")
-                genre = self.get_genre_by_name(name, db)
-            except Exception as e:
-                logging.error(f"Error fetching genre by name {name} after IntegrityError: {e}")
-                genre = None
+
+            logging.info(f"Genre '{name}' upserted successfully.")
+
+            db.expire_all()
+            return self.get_genre_by_name(name.strip(), db)
+
         except SQLAlchemyError as e:
-            logging.error(f"SQLAlchemyError while creating genre {name}: {e}")
-            genre = None
+            logging.error(f"Database error during upsert of genre '{name}': {e}")
+            return None
         except Exception as e:
-            print(f"Error creating genre {name}: {e}")
-            genre = None
-        finally:
-            return genre
+            logging.error(f"Unexpected error during upsert of genre '{name}': {e}")
+            return None

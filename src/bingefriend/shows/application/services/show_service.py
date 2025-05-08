@@ -61,7 +61,6 @@ class ShowService:
             db (Session): The database session to use.
 
         """
-
         # Process network data from the record
         network_service: NetworkService = NetworkService()
         network_info: dict | None = record.get('network')
@@ -76,7 +75,7 @@ class ShowService:
 
         if web_channel_info:
             web_channel: WebChannel | None = web_channel_service.get_or_create_web_channel(web_channel_info, db)
-            record['web_channel_id']: int | None = web_channel.id if web_channel else None
+            record['webChannel_id']: int | None = web_channel.id if web_channel else None
 
         # Process the show record
         # Clean up the record by removing empty strings

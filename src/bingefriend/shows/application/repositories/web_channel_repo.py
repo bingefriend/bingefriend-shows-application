@@ -70,6 +70,7 @@ class WebChannelRepository:
             logging.info(f"WebChannel with maze_id {maze_id} upserted successfully.")
 
             db.expire_all()
+
             return self.get_web_channel_by_maze_id(maze_id, db)
 
         except SQLAlchemyError as e:

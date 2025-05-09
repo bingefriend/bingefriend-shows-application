@@ -3,7 +3,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import declarative_base
-import bingefriend.shows.infra_azure.config as config
+import bingefriend.shows.application.config as config
 
 # 1. Get the connection string
 SQLALCHEMY_DATABASE_URL = config.SQLALCHEMY_CONNECTION_STRING
